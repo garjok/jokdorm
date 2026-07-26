@@ -1,4 +1,5 @@
 "use client";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
@@ -76,6 +77,7 @@ export default function ComparePage() {
             <Link href="/" className="text-sm text-gray-600 hover:text-gray-900">หอพักทั้งหมด</Link>
             <Link href="/recommend" className="text-sm text-blue-600 hover:text-blue-800">🤖 AI แนะนำ</Link>
             <span className="text-sm font-medium">⚖️ เปรียบเทียบ</span>
+            <ThemeToggle />
           </nav>
         </div>
       </header>

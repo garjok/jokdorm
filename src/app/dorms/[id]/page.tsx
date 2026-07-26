@@ -1,4 +1,5 @@
 "use client";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
@@ -116,6 +117,7 @@ export default function DormDetailPage() {
           <Link href="/" className="text-xl font-bold text-gray-900">
             🏠 Dorm Finder
           </Link>
+          <ThemeToggle />
           {user && (
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-600">{user.email}</span>

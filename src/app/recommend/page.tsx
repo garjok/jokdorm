@@ -1,4 +1,5 @@
 "use client";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
@@ -102,6 +103,7 @@ export default function RecommendPage() {
             <Link href="/recommend" className="text-sm font-medium text-blue-600">
               🤖 AI แนะนำ
             </Link>
+            <ThemeToggle />
           </nav>
         </div>
       </header>

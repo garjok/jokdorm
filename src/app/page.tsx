@@ -1,4 +1,5 @@
 "use client";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
@@ -122,6 +123,7 @@ export default function Home() {
             >
               ☐ {compareSelected.length > 0 && `(${compareSelected.length})`}
             </button>
+            <ThemeToggle />
             {user ? (
               <>
                 <span className="text-sm text-gray-600">{user.email}</span>
