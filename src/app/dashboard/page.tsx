@@ -14,32 +14,49 @@ export default function DashboardPage() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [dorms, setDorms] = useState<Dorm[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const router = useRouter();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }: any) => {
-      const u = data.session?.user;
-      setUser(u || null);
-      if (!u) {
-        router.push("/auth/login");
-        return;
-      }
-      supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", u.id)
-        .single()
-        .then(({ data }: any) => {
-          const role = data?.role || "user";
-          setUserRole(role);
-          if (role === "user") {
-            router.push("/");
-            return;
-          }
-          fetchDorms(role, u.id);
-        });
-    });
-  }, [router]);
+    checkAuth();
+  }, []);
+
+  async function checkAuth() {
+    // ใช้ getUser() — validate กับ Supabase server จริง ๆ
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      console.error("Dashboard: no user", authError);
+      router.push("/auth/login");
+      return;
+    }
+
+    setUser(user);
+
+    // Query role
+    const { data: roleData, error: roleError } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .single();
+
+    if (roleError || !roleData) {
+      console.error("Dashboard: role query failed", roleError, roleData);
+      setError("ไม่พบสิทธิ์ผู้ใช้ — โปรดติดต่อผู้ดูแลระบบ");
+      setLoading(false);
+      return;
+    }
+
+    const role = roleData.role;
+    setUserRole(role);
+
+    if (role === "user") {
+      router.push("/");
+      return;
+    }
+
+    fetchDorms(role, user.id);
+  }
 
   async function fetchDorms(role: string, userId: string) {
     setLoading(true);
@@ -47,8 +64,11 @@ export default function DashboardPage() {
     if (role === "owner") {
       query = query.eq("owner_id", userId);
     }
-    // admin sees all
-    const { data } = await query.order("created_at", { ascending: false });
+    // admin เห็นทั้งหมด
+    const { data, error } = await query.order("created_at", { ascending: false });
+    if (error) {
+      console.error("Dashboard: fetch dorms failed", error);
+    }
     setDorms(data || []);
     setLoading(false);
   }
@@ -62,20 +82,20 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
+      <header className="bg-white dark:bg-slate-800 border-b dark:border-slate-700">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/" className="text-xl font-bold text-gray-900">
+          <Link href="/" className="text-xl font-bold text-gray-900 dark:text-white">
             🏠 Dorm Finder
           </Link>
           <div className="flex items-center gap-4">
             <Link href="/recommend" className="text-sm text-blue-600 hover:text-blue-800">🤖 AI แนะนำ</Link>
-            <Link href="/compare" className="text-sm text-gray-600 hover:text-gray-900">⚖️ เปรียบเทียบ</Link>
+            <Link href="/compare" className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">⚖️ เปรียบเทียบ</Link>
             <ThemeToggle />
-            <span className="text-sm text-gray-600">{user.email}</span>
+            <span className="text-sm text-gray-600 dark:text-gray-300">{user.email}</span>
             <button
               onClick={() => supabase.auth.signOut()}
-              className="text-sm text-gray-600 hover:text-gray-900"
+              className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
             >
               ออกจากระบบ
             </button>
@@ -86,10 +106,10 @@ export default function DashboardPage() {
       <main className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
               {userRole === "admin" ? "จัดการหอพักทั้งหมด" : "หอพักของฉัน"}
             </h1>
-            <p className="text-gray-600 mt-1">
+            <p className="text-gray-600 dark:text-gray-400 mt-1">
               {dorms.length} หอพัก
             </p>
           </div>
@@ -98,10 +118,16 @@ export default function DashboardPage() {
           </Link>
         </div>
 
+        {error && (
+          <div className="text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 p-4 rounded-lg mb-6">
+            {error}
+          </div>
+        )}
+
         {loading ? (
-          <div className="text-center py-12">กำลังโหลด...</div>
+          <div className="text-center py-12 text-gray-500 dark:text-gray-400">กำลังโหลด...</div>
         ) : dorms.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">
+          <div className="text-center py-12 text-gray-500 dark:text-gray-400">
             ยังไม่มีหอพัก{" "}
             <Link href="/dorms/new" className="text-blue-600 underline">
               เพิ่มหอพักเลย
@@ -110,17 +136,17 @@ export default function DashboardPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {dorms.map((dorm) => (
-              <Card key={dorm.id} className="hover:shadow-lg transition-shadow">
+              <Card key={dorm.id} className="hover:shadow-lg transition-shadow dark:bg-slate-800 dark:border-slate-700">
                 <CardHeader className="pb-2">
-                  <h3 className="text-lg font-semibold">{dorm.name}</h3>
-                  <p className="text-sm text-gray-500 line-clamp-1">{dorm.address}</p>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{dorm.name}</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-1">{dorm.address}</p>
                 </CardHeader>
                 <CardContent>
                   <div className="flex justify-between items-center mb-3">
-                    <span className="text-xl font-bold">
+                    <span className="text-xl font-bold text-gray-900 dark:text-white">
                       ฿{dorm.price_per_month.toLocaleString()}/เดือน
                     </span>
-                    <span className="text-sm text-gray-500">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
                       ว่าง {dorm.rooms_available} ห้อง
                     </span>
                   </div>
