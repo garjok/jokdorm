@@ -1,10 +1,15 @@
+-- ============================================================
 -- Dorm Finder Supabase Schema
--- Run this in your Supabase SQL Editor
+-- รวมทุกอย่าง: ตาราง + RLS + Trigger insert role อัตโนมัติ
+-- รันใน SQL Editor ของ Supabase ได้เลย
+-- ============================================================
 
--- Enable UUID extension
+-- 1. Extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- User roles table (extends Supabase auth.users)
+-- ============================================================
+-- 2. TABLE: user_roles
+-- ============================================================
 CREATE TABLE IF NOT EXISTS user_roles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -13,7 +18,9 @@ CREATE TABLE IF NOT EXISTS user_roles (
   UNIQUE(user_id)
 );
 
--- Dorms table
+-- ============================================================
+-- 3. TABLE: dorms
+-- ============================================================
 CREATE TABLE IF NOT EXISTS dorms (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
@@ -36,7 +43,9 @@ CREATE TABLE IF NOT EXISTS dorms (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Reviews table
+-- ============================================================
+-- 4. TABLE: reviews
+-- ============================================================
 CREATE TABLE IF NOT EXISTS reviews (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   dorm_id UUID NOT NULL REFERENCES dorms(id) ON DELETE CASCADE,
@@ -50,68 +59,92 @@ CREATE TABLE IF NOT EXISTS reviews (
   UNIQUE(dorm_id, user_id)
 );
 
--- RLS Policies for dorms
+-- ============================================================
+-- 5. TRIGGER: Insert role='user' อัตโนมัติเมื่อสมัครสมาชิก
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = ''
+AS $$
+BEGIN
+  INSERT INTO public.user_roles (user_id, role)
+  VALUES (NEW.id, 'user');
+  RETURN NEW;
+END;
+$$;
+
+-- ลบ trigger เก่าถ้ามี แล้วสร้างใหม่
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE OR REPLACE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_new_user();
+
+-- ============================================================
+-- 6. RLS: dorms
+-- ============================================================
 ALTER TABLE dorms ENABLE ROW LEVEL SECURITY;
 
--- Everyone can read active dorms
 CREATE POLICY "dorms_read_all" ON dorms
   FOR SELECT USING (is_active = true);
 
--- Owners can insert their own dorms
 CREATE POLICY "dorms_insert_owner" ON dorms
   FOR INSERT WITH CHECK (
     owner_id = auth.uid() AND
     EXISTS (SELECT 1 FROM user_roles WHERE user_id = auth.uid() AND role IN ('owner', 'admin'))
   );
 
--- Owners can update their own dorms
 CREATE POLICY "dorms_update_owner" ON dorms
   FOR UPDATE USING (
     owner_id = auth.uid() OR
     EXISTS (SELECT 1 FROM user_roles WHERE user_id = auth.uid() AND role = 'admin')
   );
 
--- Owners can delete their own dorms
 CREATE POLICY "dorms_delete_owner" ON dorms
   FOR DELETE USING (
     owner_id = auth.uid() OR
     EXISTS (SELECT 1 FROM user_roles WHERE user_id = auth.uid() AND role = 'admin')
   );
 
--- RLS Policies for reviews
+-- ============================================================
+-- 7. RLS: reviews
+-- ============================================================
 ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
 
--- Everyone can read reviews
 CREATE POLICY "reviews_read_all" ON reviews
   FOR SELECT USING (true);
 
--- Users can insert reviews (one per dorm)
 CREATE POLICY "reviews_insert_user" ON reviews
   FOR INSERT WITH CHECK (user_id = auth.uid());
 
--- Users can update their own reviews
 CREATE POLICY "reviews_update_user" ON reviews
   FOR UPDATE USING (user_id = auth.uid());
 
--- Users can delete their own reviews
 CREATE POLICY "reviews_delete_user" ON reviews
   FOR DELETE USING (
     user_id = auth.uid() OR
     EXISTS (SELECT 1 FROM user_roles WHERE user_id = auth.uid() AND role = 'admin')
   );
 
--- RLS Policies for user_roles
+-- ============================================================
+-- 8. RLS: user_roles
+-- ============================================================
 ALTER TABLE user_roles ENABLE ROW LEVEL SECURITY;
 
--- Users can read their own role
+-- อ่าน role ของตัวเองได้
 CREATE POLICY "user_roles_read_own" ON user_roles
   FOR SELECT USING (user_id = auth.uid());
 
--- Admin can read all roles
+-- Admin อ่าน role ของทุกคนได้
 CREATE POLICY "user_roles_read_admin" ON user_roles
-  FOR SELECT USING (EXISTS (SELECT 1 FROM user_roles WHERE user_id = auth.uid() AND role = 'admin'));
+  FOR SELECT USING (
+    EXISTS (SELECT 1 FROM user_roles WHERE user_id = auth.uid() AND role = 'admin')
+  );
 
--- Create trigger to set updated_at automatically
+-- ============================================================
+-- 9. Trigger: อัปเดต updated_at อัตโนมัติ
+-- ============================================================
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -120,8 +153,22 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
-CREATE TRIGGER update_dorms_updated_at BEFORE UPDATE ON dorms
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_dorms_updated_at
+  BEFORE UPDATE ON dorms
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_reviews_updated_at BEFORE UPDATE ON reviews
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_reviews_updated_at
+  BEFORE UPDATE ON reviews
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================================
+-- 10. 🔥 ถ้ายังไม่ได้ Insert role admin ให้รันอันนี้ (เฉพาะครั้งแรก)
+-- ============================================================
+-- INSERT INTO user_roles (user_id, role)
+-- VALUES (
+--   (SELECT id FROM auth.users WHERE email = 'admin@dormfinder.local'),
+--   'admin'
+-- )
+-- ON CONFLICT (user_id) DO UPDATE SET role = 'admin';

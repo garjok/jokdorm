@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createBrowserClient } from '@supabase/ssr';
 
 function getSupabaseClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -37,7 +37,9 @@ function getSupabaseClient() {
     } as any;
   }
   
-  return createClient(supabaseUrl, supabaseKey);
+  // Use createBrowserClient from @supabase/ssr so the auth session
+  // is persisted in cookies and survives page navigations / refreshes
+  return createBrowserClient(supabaseUrl, supabaseKey);
 }
 
 export const supabase = getSupabaseClient();
