@@ -214,29 +214,69 @@ export default function DormDetailPage() {
           <CardHeader>
             <CardTitle>รายละเอียด</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {dorm.description && <p>{dorm.description}</p>}
-            <div className="grid grid-cols-2 gap-4 text-sm">
+          <CardContent className="space-y-4">
+            {/* รายละเอียด */}
+            {(dorm.description || (dorm.facilities && dorm.facilities.length > 0) || (dorm.nearby_places && dorm.nearby_places.length > 0)) ? (
+              <>
+                {dorm.description && (
+                  <div>
+                    <p className="text-gray-700 dark:text-gray-300">{dorm.description}</p>
+                  </div>
+                )}
+
+                {/* Facilities */}
+                {dorm.facilities && dorm.facilities.length > 0 && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">สิ่งอำนวยความสะดวก</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {dorm.facilities.map((f: string, i: number) => (
+                        <span key={i} className="text-xs px-2.5 py-1 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full">
+                          {f}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* NearBy */}
+                {dorm.nearby_places && dorm.nearby_places.length > 0 && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">สถานที่ใกล้เคียง</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {dorm.nearby_places.map((p: string, i: number) => (
+                        <span key={i} className="text-xs px-2.5 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full">
+                          📍 {p}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="text-gray-400 dark:text-gray-500 text-sm">ไม่มีรายละเอียดเพิ่มเติม</p>
+            )}
+
+            <div className="grid grid-cols-2 gap-4 text-sm border-t dark:border-slate-700 pt-4">
               {dorm.water_rate !== null && (
                 <div>
-                  <span className="text-gray-500">ค่าน้ำ:</span>{" "}
-                  <span className="font-medium">{dorm.water_rate} บาท/หน่วย</span>
+                  <span className="text-gray-500 dark:text-gray-400">ค่าน้ำ:</span>{" "}
+                  <span className="font-medium text-gray-900 dark:text-white">{dorm.water_rate} บาท/หน่วย</span>
                 </div>
               )}
               {dorm.electric_rate !== null && (
                 <div>
-                  <span className="text-gray-500">ค่าไฟ:</span>{" "}
-                  <span className="font-medium">{dorm.electric_rate} บาท/หน่วย</span>
+                  <span className="text-gray-500 dark:text-gray-400">ค่าไฟ:</span>{" "}
+                  <span className="font-medium text-gray-900 dark:text-white">{dorm.electric_rate} บาท/หน่วย</span>
                 </div>
               )}
               {dorm.deposit !== null && (
                 <div>
-                  <span className="text-gray-500">ค่ามัดจำ:</span>{" "}
-                  <span className="font-medium">{formatPrice(dorm.deposit)}</span>
+                  <span className="text-gray-500 dark:text-gray-400">ค่ามัดจำ:</span>{" "}
+                  <span className="font-medium text-gray-900 dark:text-white">{formatPrice(dorm.deposit)}</span>
                 </div>
               )}
             </div>
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-gray-400 dark:text-gray-500">
               อัปเดตล่าสุด: {formatDate(dorm.updated_at)}
             </p>
           </CardContent>
