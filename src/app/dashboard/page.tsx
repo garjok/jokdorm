@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { Dorm } from "@/types";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import Link from "next/link";
@@ -68,6 +69,9 @@ export default function DashboardPage() {
             🏠 Dorm Finder
           </Link>
           <div className="flex items-center gap-4">
+            <Link href="/recommend" className="text-sm text-blue-600 hover:text-blue-800">🤖 AI แนะนำ</Link>
+            <Link href="/compare" className="text-sm text-gray-600 hover:text-gray-900">⚖️ เปรียบเทียบ</Link>
+            <ThemeToggle />
             <span className="text-sm text-gray-600">{user.email}</span>
             <button
               onClick={() => supabase.auth.signOut()}
