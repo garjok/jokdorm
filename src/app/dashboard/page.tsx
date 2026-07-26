@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase, getMyRole } from "@/lib/supabase";
 import { Dorm } from "@/types";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
@@ -34,20 +34,15 @@ export default function DashboardPage() {
     setUser(user);
 
     // Query role
-    const { data: roleData, error: roleError } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .single();
+    // ใช้ RPC bypass RLS สำหรับอ่าน role
+    const role = await getMyRole();
 
-    if (roleError || !roleData) {
-      console.error("Dashboard: role query failed", roleError, roleData);
+    if (!role) {
+      console.error("Dashboard: role query failed");
       setError("ไม่พบสิทธิ์ผู้ใช้ — โปรดติดต่อผู้ดูแลระบบ");
       setLoading(false);
       return;
     }
-
-    const role = roleData.role;
     setUserRole(role);
 
     if (role === "user") {

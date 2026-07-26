@@ -153,6 +153,23 @@ CREATE TRIGGER update_reviews_updated_at
   EXECUTE FUNCTION update_updated_at_column();
 
 -- ============================================================
+-- Function: get_my_role() — bypass RLS สำหรับอ่าน role
+-- ใช้ SECURITY DEFINER เพื่อให้ข้าม RLS ได้
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.get_my_role()
+RETURNS VARCHAR(20)
+LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = ''
+AS $$
+DECLARE
+  user_role VARCHAR(20);
+BEGIN
+  SELECT role INTO user_role FROM public.user_roles WHERE user_id = auth.uid();
+  RETURN user_role;
+END;
+$$;
+
+-- ============================================================
 -- Insert role admin (ปลอดภัย รันซ้ำได้)
 -- ============================================================
 INSERT INTO user_roles (user_id, role)

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { supabase } from "@/lib/supabase";
+import { supabase, getMyRole } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -41,18 +41,14 @@ export default function NewDormPage() {
     }
     setUser(user);
 
-    const { data: roleData, error: roleError } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .single();
+    // ใช้ RPC bypass RLS สำหรับอ่าน role
+    const role = await getMyRole();
 
-    if (roleError || !roleData) {
+    if (!role) {
       setError("ไม่พบสิทธิ์ผู้ใช้");
       return;
     }
 
-    const role = roleData.role;
     setUserRole(role);
 
     if (role === "user") {

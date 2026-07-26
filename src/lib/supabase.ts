@@ -5,7 +5,6 @@ function getSupabaseClient() {
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
   
   if (!supabaseUrl || !supabaseKey) {
-    // Return a mock client during build/SSR when env vars aren't available
     return {
       from: () => ({
         select: () => Promise.resolve({ data: null, error: new Error('Supabase not configured') }),
@@ -22,8 +21,10 @@ function getSupabaseClient() {
         ilike: () => Promise.resolve({ data: null, error: new Error('Supabase not configured') }),
         not: () => Promise.resolve({ data: null, error: new Error('Supabase not configured') }),
       }),
+      rpc: () => Promise.resolve({ data: null, error: new Error('Supabase not configured') }),
       auth: {
         getSession: () => Promise.resolve({ data: { session: null }, error: null }),
+        getUser: () => Promise.resolve({ data: { user: null }, error: null }),
         signOut: () => Promise.resolve({ error: null }),
         signUp: () => Promise.resolve({ data: null, error: new Error('Supabase not configured') }),
         signInWithPassword: () => Promise.resolve({ data: null, error: new Error('Supabase not configured') }),
@@ -37,8 +38,6 @@ function getSupabaseClient() {
     } as any;
   }
   
-  // Use createBrowserClient from @supabase/ssr so the auth session
-  // is persisted in cookies and survives page navigations / refreshes
   return createBrowserClient(supabaseUrl, supabaseKey);
 }
 
@@ -53,4 +52,26 @@ export async function getUserRole(userId: string): Promise<string | null> {
   
   if (error) return null;
   return data?.role || 'user';
+}
+
+/**
+ * ดึง role ของ user ปัจจุบัน ใช้ RPC bypass RLS
+ * เรียกผ่าน SECURITY DEFINER function get_my_role()
+ */
+export async function getMyRole(): Promise<string | null> {
+  try {
+    const { data, error } = await supabase.rpc('get_my_role');
+    if (error) {
+      console.error('getMyRole RPC error:', error);
+      // fallback: query ตรง
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+      const roleData = await getUserRole(user.id);
+      return roleData;
+    }
+    return data as string | null;
+  } catch (e) {
+    console.error('getMyRole failed:', e);
+    return null;
+  }
 }

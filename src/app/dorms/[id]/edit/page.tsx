@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { supabase } from "@/lib/supabase";
+import { supabase, getMyRole } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -45,19 +45,15 @@ export default function EditDormPage() {
     }
     setUser(user);
 
-    const { data: roleData, error: roleError } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .single();
+    // ใช้ RPC bypass RLS สำหรับอ่าน role
+    const role = await getMyRole();
 
-    if (roleError || !roleData) {
-      console.error("Edit: role query failed", roleError);
+    if (!role) {
+      console.error("Edit: role query failed");
       setError("ไม่พบสิทธิ์ผู้ใช้ — โปรดติดต่อผู้ดูแลระบบ");
       return;
     }
 
-    const role = roleData.role;
     setUserRole(role);
 
     if (role === "user") {
