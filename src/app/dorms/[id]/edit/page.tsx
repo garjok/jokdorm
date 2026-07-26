@@ -32,6 +32,8 @@ export default function EditDormPage() {
     deposit: "",
     rooms_available: "",
     phone: "",
+    facilities: "",
+    nearby_places: "",
   });
 
   const [newFiles, setNewFiles] = useState<File[]>([]);
@@ -83,6 +85,8 @@ export default function EditDormPage() {
       deposit: data.deposit ? String(data.deposit) : "",
       rooms_available: String(data.rooms_available),
       phone: data.phone || "",
+      facilities: (data.facilities || []).join(', '),
+      nearby_places: (data.nearby_places || []).join(', '),
     });
     setExistingImages(data.images || []);
   }
@@ -132,6 +136,9 @@ export default function EditDormPage() {
       allImages = [...allImages, ...uploaded];
     }
 
+    const facilities = formData.facilities ? formData.facilities.split(',').map(s => s.trim()).filter(Boolean) : [];
+    const nearby_places = formData.nearby_places ? formData.nearby_places.split(',').map(s => s.trim()).filter(Boolean) : [];
+
     const { error } = await supabase
       .from("dorms")
       .update({
@@ -145,6 +152,8 @@ export default function EditDormPage() {
         rooms_available: parseInt(formData.rooms_available) || 0,
         phone: formData.phone || null,
         images: allImages,
+        facilities,
+        nearby_places,
       })
       .eq("id", dormId);
 
@@ -233,6 +242,20 @@ export default function EditDormPage() {
             <div>
               <Label className="text-gray-900 dark:text-white">เบอร์โทร</Label>
               <Input name="phone" value={formData.phone} onChange={handleChange} />
+            </div>
+          </div>
+
+          {/* สิ่งอำนวยความสะดวก */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label className="text-gray-900 dark:text-white">สิ่งอำนวยความสะดวก</Label>
+              <Input name="facilities" value={formData.facilities} onChange={handleChange} placeholder="wifi, แอร์, ที่จอดรถ, ..." />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">คั่นด้วยเครื่องหมาย ,</p>
+            </div>
+            <div>
+              <Label className="text-gray-900 dark:text-white">สถานที่ใกล้เคียง</Label>
+              <Input name="nearby_places" value={formData.nearby_places} onChange={handleChange} placeholder="ประตู 1, ตลาด, 7-11, ..." />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">คั่นด้วยเครื่องหมาย ,</p>
             </div>
           </div>
 

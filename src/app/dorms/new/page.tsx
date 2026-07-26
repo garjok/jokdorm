@@ -27,6 +27,8 @@ export default function NewDormPage() {
     deposit: "",
     rooms_available: "",
     phone: "",
+    facilities: "",
+    nearby_places: "",
   });
 
   const [imageFiles, setImageFiles] = useState<File[]>([]);
@@ -106,6 +108,10 @@ export default function NewDormPage() {
     }
 
     // บันทึกหอพักก่อน
+    // แปลง facilities / nearby_places จาก comma-separated → array
+    const facilities = formData.facilities ? formData.facilities.split(',').map(s => s.trim()).filter(Boolean) : [];
+    const nearby_places = formData.nearby_places ? formData.nearby_places.split(',').map(s => s.trim()).filter(Boolean) : [];
+
     const { data: dorm, error: insertError } = await supabase.from("dorms").insert({
       name: formData.name,
       description: formData.description || null,
@@ -118,6 +124,8 @@ export default function NewDormPage() {
       phone: formData.phone || null,
       owner_id: user.id,
       images: [],
+      facilities,
+      nearby_places,
     }).select("id").single();
 
     if (insertError || !dorm) {
@@ -215,6 +223,20 @@ export default function NewDormPage() {
             <div>
               <Label className="text-gray-900 dark:text-white">เบอร์โทร</Label>
               <Input name="phone" value={formData.phone} onChange={handleChange} />
+            </div>
+          </div>
+
+          {/* สิ่งอำนวยความสะดวก */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label className="text-gray-900 dark:text-white">สิ่งอำนวยความสะดวก</Label>
+              <Input name="facilities" value={formData.facilities} onChange={handleChange} placeholder="wifi, แอร์, ที่จอดรถ, ..." />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">คั่นด้วยเครื่องหมาย ,</p>
+            </div>
+            <div>
+              <Label className="text-gray-900 dark:text-white">สถานที่ใกล้เคียง</Label>
+              <Input name="nearby_places" value={formData.nearby_places} onChange={handleChange} placeholder="ประตู 1, ตลาด, 7-11, ..." />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">คั่นด้วยเครื่องหมาย ,</p>
             </div>
           </div>
 
