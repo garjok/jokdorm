@@ -161,12 +161,12 @@ export default function Home() {
       </header>
 
       {/* Hero */}
-      <div className="bg-gradient-to-b from-blue-50 to-gray-50 py-12">
+      <div className="bg-gradient-to-b from-blue-50 to-gray-50 dark:from-slate-900 dark:to-slate-800 py-12">
         <div className="max-w-7xl mx-auto px-4 text-center">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
             ค้นหาหอพักใกล้มหาวิทยาลัยพะเยา
           </h1>
-          <p className="text-gray-600 mb-8">
+          <p className="text-gray-600 dark:text-gray-300 mb-8">
             เปรียบเทียบราคา อ่านรีวิว ตัดสินใจเลือกหอที่ใช่
           </p>
 
