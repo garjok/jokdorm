@@ -29,6 +29,9 @@ export default function NewDormPage() {
     phone: "",
   });
 
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+
   useEffect(() => {
     checkAuth();
   }, []);
@@ -41,16 +44,12 @@ export default function NewDormPage() {
     }
     setUser(user);
 
-    // ใช้ RPC bypass RLS สำหรับอ่าน role
     const role = await getMyRole();
-
     if (!role) {
       setError("ไม่พบสิทธิ์ผู้ใช้");
       return;
     }
-
     setUserRole(role);
-
     if (role === "user") {
       router.push("/");
     }
@@ -58,6 +57,40 @@ export default function NewDormPage() {
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  }
+
+  function handleImages(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files || []);
+    setImageFiles(files);
+    setImagePreviews(files.map(f => URL.createObjectURL(f)));
+  }
+
+  function removeImage(index: number) {
+    setImageFiles(prev => prev.filter((_, i) => i !== index));
+    setImagePreviews(prev => {
+      URL.revokeObjectURL(prev[index]);
+      return prev.filter((_, i) => i !== index);
+    });
+  }
+
+  async function uploadImages(dormId: string): Promise<string[]> {
+    const urls: string[] = [];
+    for (const file of imageFiles) {
+      const ext = file.name.split('.').pop();
+      const path = `${dormId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from('dorm-images')
+        .upload(path, file);
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        continue;
+      }
+      const { data: { publicUrl } } = supabase.storage
+        .from('dorm-images')
+        .getPublicUrl(path);
+      urls.push(publicUrl);
+    }
+    return urls;
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -72,7 +105,8 @@ export default function NewDormPage() {
       return;
     }
 
-    const { error } = await supabase.from("dorms").insert({
+    // บันทึกหอพักก่อน
+    const { data: dorm, error: insertError } = await supabase.from("dorms").insert({
       name: formData.name,
       description: formData.description || null,
       address: formData.address,
@@ -83,14 +117,25 @@ export default function NewDormPage() {
       rooms_available: parseInt(formData.rooms_available) || 0,
       phone: formData.phone || null,
       owner_id: user.id,
-    });
+      images: [],
+    }).select("id").single();
+
+    if (insertError || !dorm) {
+      setError(insertError?.message || "บันทึกข้อมูลไม่สำเร็จ");
+      setLoading(false);
+      return;
+    }
+
+    // อัปโหลดรูปถ้ามี
+    if (imageFiles.length > 0) {
+      const urls = await uploadImages(dorm.id);
+      if (urls.length > 0) {
+        await supabase.from("dorms").update({ images: urls }).eq("id", dorm.id);
+      }
+    }
 
     setLoading(false);
-    if (error) {
-      setError(error.message);
-    } else {
-      router.push("/dashboard");
-    }
+    router.push(`/dorms/${dorm.id}`);
   }
 
   if (!user || userRole === "user") {
@@ -171,6 +216,39 @@ export default function NewDormPage() {
               <Label className="text-gray-900 dark:text-white">เบอร์โทร</Label>
               <Input name="phone" value={formData.phone} onChange={handleChange} />
             </div>
+          </div>
+
+          {/* รูปภาพ */}
+          <div>
+            <Label className="text-gray-900 dark:text-white">รูปภาพหอพัก</Label>
+            <Input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleImages}
+              className="mt-1"
+            />
+            {imagePreviews.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-3">
+                {imagePreviews.map((preview, i) => (
+                  <div key={i} className="relative group">
+                    <img
+                      src={preview}
+                      alt={`รูป ${i + 1}`}
+                      className="w-24 h-24 object-cover rounded-lg border dark:border-slate-600"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(i)}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">เลือกได้หลายรูป (แนะนำ 1-5 รูป)</p>
           </div>
 
           <Button type="submit" className="w-full" disabled={loading}>

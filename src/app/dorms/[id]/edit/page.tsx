@@ -20,6 +20,7 @@ export default function EditDormPage() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [existingImages, setExistingImages] = useState<string[]>([]);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -33,6 +34,9 @@ export default function EditDormPage() {
     phone: "",
   });
 
+  const [newFiles, setNewFiles] = useState<File[]>([]);
+  const [newPreviews, setNewPreviews] = useState<string[]>([]);
+
   useEffect(() => {
     checkAuth();
   }, []);
@@ -45,23 +49,16 @@ export default function EditDormPage() {
     }
     setUser(user);
 
-    // ใช้ RPC bypass RLS สำหรับอ่าน role
     const role = await getMyRole();
-
     if (!role) {
-      console.error("Edit: role query failed");
-      setError("ไม่พบสิทธิ์ผู้ใช้ — โปรดติดต่อผู้ดูแลระบบ");
+      setError("ไม่พบสิทธิ์ผู้ใช้");
       return;
     }
-
     setUserRole(role);
-
     if (role === "user") {
       router.push("/");
       return;
     }
-
-    // มีสิทธิ์ — โหลดข้อมูลหอพัก
     loadDorm(user.id, role);
   }
 
@@ -71,8 +68,6 @@ export default function EditDormPage() {
       router.push("/");
       return;
     }
-
-    // เช็คว่าเป็น owner หรือ admin
     if (role !== "admin" && data.owner_id !== userId) {
       router.push("/");
       return;
@@ -89,16 +84,53 @@ export default function EditDormPage() {
       rooms_available: String(data.rooms_available),
       phone: data.phone || "",
     });
+    setExistingImages(data.images || []);
   }
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   }
 
+  function handleNewImages(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files || []);
+    setNewFiles(files);
+    setNewPreviews(files.map(f => URL.createObjectURL(f)));
+  }
+
+  function removeExisting(index: number) {
+    setExistingImages(prev => prev.filter((_, i) => i !== index));
+  }
+
+  async function uploadNewImages(): Promise<string[]> {
+    const urls: string[] = [];
+    for (const file of newFiles) {
+      const ext = file.name.split('.').pop();
+      const path = `${dormId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from('dorm-images')
+        .upload(path, file);
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        continue;
+      }
+      const { data: { publicUrl } } = supabase.storage
+        .from('dorm-images')
+        .getPublicUrl(path);
+      urls.push(publicUrl);
+    }
+    return urls;
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     setError("");
+
+    let allImages = [...existingImages];
+    if (newFiles.length > 0) {
+      const uploaded = await uploadNewImages();
+      allImages = [...allImages, ...uploaded];
+    }
 
     const { error } = await supabase
       .from("dorms")
@@ -112,6 +144,7 @@ export default function EditDormPage() {
         deposit: formData.deposit ? parseFloat(formData.deposit) : null,
         rooms_available: parseInt(formData.rooms_available) || 0,
         phone: formData.phone || null,
+        images: allImages,
       })
       .eq("id", dormId);
 
@@ -125,14 +158,10 @@ export default function EditDormPage() {
 
   async function handleDelete() {
     if (!confirm("คุณแน่ใจหรือไม่ว่าต้องการลบหอพักนี้?")) return;
-
     setSaving(true);
     const { error } = await supabase.from("dorms").delete().eq("id", dormId);
     setSaving(false);
-
-    if (!error) {
-      router.push("/dashboard");
-    }
+    if (!error) router.push("/dashboard");
   }
 
   if (!user) {
@@ -147,9 +176,7 @@ export default function EditDormPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
       <header className="bg-white dark:bg-slate-800 border-b dark:border-slate-700">
         <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/" className="text-xl font-bold text-gray-900 dark:text-white">
-            🏠 Dorm Finder
-          </Link>
+          <Link href="/" className="text-xl font-bold text-gray-900 dark:text-white">🏠 Dorm Finder</Link>
           <ThemeToggle />
         </div>
       </header>
@@ -157,26 +184,20 @@ export default function EditDormPage() {
       <main className="max-w-2xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">แก้ไขหอพัก</h1>
-          <Button variant="destructive" onClick={handleDelete} disabled={saving}>
-            ลบหอพัก
-          </Button>
+          <Button variant="destructive" onClick={handleDelete} disabled={saving}>ลบหอพัก</Button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 bg-white dark:bg-slate-800 p-6 rounded-lg border dark:border-slate-700">
-          {error && (
-            <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-3 rounded">{error}</div>
-          )}
+          {error && <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-3 rounded">{error}</div>}
 
           <div>
             <Label className="text-gray-900 dark:text-white">ชื่อหอพัก *</Label>
             <Input name="name" value={formData.name} onChange={handleChange} required />
           </div>
-
           <div>
             <Label className="text-gray-900 dark:text-white">รายละเอียด</Label>
             <Textarea name="description" value={formData.description} onChange={handleChange} />
           </div>
-
           <div>
             <Label className="text-gray-900 dark:text-white">ที่อยู่ *</Label>
             <Input name="address" value={formData.address} onChange={handleChange} required />
@@ -213,6 +234,39 @@ export default function EditDormPage() {
               <Label className="text-gray-900 dark:text-white">เบอร์โทร</Label>
               <Input name="phone" value={formData.phone} onChange={handleChange} />
             </div>
+          </div>
+
+          {/* รูปภาพปัจจุบัน */}
+          {existingImages.length > 0 && (
+            <div>
+              <Label className="text-gray-900 dark:text-white">รูปภาพปัจจุบัน</Label>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {existingImages.map((url, i) => (
+                  <div key={i} className="relative group">
+                    <img src={url} alt="" className="w-24 h-24 object-cover rounded-lg border dark:border-slate-600" />
+                    <button
+                      type="button"
+                      onClick={() => removeExisting(i)}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    >×</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* เพิ่มรูปใหม่ */}
+          <div>
+            <Label className="text-gray-900 dark:text-white">เพิ่มรูปภาพ</Label>
+            <Input type="file" accept="image/*" multiple onChange={handleNewImages} className="mt-1" />
+            {newPreviews.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-3">
+                {newPreviews.map((preview, i) => (
+                  <img key={i} src={preview} alt="" className="w-24 h-24 object-cover rounded-lg border dark:border-slate-600" />
+                ))}
+              </div>
+            )}
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">เลือกรูปเพิ่ม หรือเว้นว่างไว้ถ้าไม่ต้องการเปลี่ยน</p>
           </div>
 
           <div className="flex gap-2">

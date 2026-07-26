@@ -175,3 +175,30 @@ $$;
 INSERT INTO user_roles (user_id, role)
 SELECT id, 'admin' FROM auth.users WHERE email = 'admin@dormfinder.local'
 ON CONFLICT (user_id) DO UPDATE SET role = 'admin';
+
+-- ============================================================
+-- Storage bucket สำหรับรูปหอพัก
+-- ============================================================
+INSERT INTO storage.buckets (id, name, public)
+SELECT 'dorm-images', 'dorm-images', true
+WHERE NOT EXISTS (SELECT 1 FROM storage.buckets WHERE id = 'dorm-images');
+
+-- ใครก็อ่านรูปได้
+DROP POLICY IF EXISTS "dorm_images_select_public" ON storage.objects;
+CREATE POLICY "dorm_images_select_public" ON storage.objects
+  FOR SELECT USING (bucket_id = 'dorm-images');
+
+-- เฉพาะ owner/admin เท่านั้นที่อัปโหลด/ลบ
+DROP POLICY IF EXISTS "dorm_images_insert_owner" ON storage.objects;
+CREATE POLICY "dorm_images_insert_owner" ON storage.objects
+  FOR INSERT WITH CHECK (
+    bucket_id = 'dorm-images' AND
+    auth.role() = 'authenticated'
+  );
+
+DROP POLICY IF EXISTS "dorm_images_delete_owner" ON storage.objects;
+CREATE POLICY "dorm_images_delete_owner" ON storage.objects
+  FOR DELETE USING (
+    bucket_id = 'dorm-images' AND
+    auth.role() = 'authenticated'
+  );
