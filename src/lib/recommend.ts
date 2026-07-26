@@ -110,13 +110,20 @@ function hasPriceConcern(query: string): boolean {
  * Check if query implies a price range (e.g., "ไม่เกิน 3000", "2000-3000")
  */
 function extractPriceRange(query: string): { min?: number; max?: number } {
+  // รูปแบบ 2000-3000
   const range = query.match(/(\d{3,})\s*-\s*(\d{3,})/);
   if (range) {
     return { min: parseInt(range[1]), max: parseInt(range[2]) };
   }
-  const maxMatch = query.match(/(?:ไม่เกิน|ไม่เกิน|ต่ำกว่า|below|under)\s*(\d{3,})/);
+  // ไม่เกิน X / ต่ำกว่า X / below X / under X
+  const maxMatch = query.match(/(?:ไม่เกิน|ต่ำกว่า|below|under|ไม่เกิน|ไม่เกิน)\s*(\d{3,})/);
   if (maxMatch) {
     return { max: parseInt(maxMatch[1]) };
+  }
+  // ถูกกว่า X
+  const cheaperMatch = query.match(/(?:ถูกกว่า|ถูกว่า)\s*(\d{3,})/);
+  if (cheaperMatch) {
+    return { max: parseInt(cheaperMatch[1]) };
   }
   return {};
 }
@@ -201,19 +208,32 @@ export function scoreDorm(
       matchDetails.price += 1; // moderate
     }
   }
+  // ⛔ บังคับ budget แบบเด็ดขาด
+  let overBudget = false;
   if (priceRange.max && dorm.price_per_month) {
     if (dorm.price_per_month <= priceRange.max) {
-      matchDetails.price += 4;
-      matchReasons.push(`ราคา ${dorm.price_per_month} บาท อยู่ในงบที่กำหนด`);
+      matchDetails.price += 10;
+      matchReasons.push(`✅ ราคา ${dorm.price_per_month} บาท อยู่ในงบที่กำหนด`);
     } else {
-      matchDetails.price -= 2; // penalty
+      matchDetails.price -= 50; // ⛔ ตัดแต้มหนักมาก
+      overBudget = true;
     }
   }
   if (priceRange.min && dorm.price_per_month) {
     if (dorm.price_per_month >= priceRange.min) {
-      matchDetails.price += 1;
+      matchDetails.price += 5;
+    } else {
+      matchDetails.price -= 50;
+      overBudget = true;
     }
   }
+
+  if (dorm.price_per_month && !priceRange.max && !priceRange.min) {
+    matchReasons.push(`ราคา ${dorm.price_per_month} บาท/เดือน`);
+  }
+
+  // เอา overBudget ไปใช้ใน recommendDorms
+  (dorm as any).__overBudget = overBudget;
 
   // --- 5. Review sentiment matching ---
   if (reviews.length > 0) {
@@ -250,7 +270,7 @@ export function scoreDorm(
   if (matchDetails.description > 0) generateMatchReasons(matchReasons, matchDetails.description, 'รายละเอียด', 'ตรงกับความต้องการ');
   if (matchDetails.facilities > 1) generateMatchReasons(matchReasons, matchDetails.facilities, 'สิ่งอำนวยความสะดวก', '');
   if (matchDetails.location > 1) generateMatchReasons(matchReasons, matchDetails.location, 'ทำเลที่ตั้ง', '');
-  if (matchDetails.price > 0) {
+  if (matchDetails.price > 0 && !priceRange.max && !priceRange.min) {
     if (dorm.price_per_month) {
       matchReasons.push(`ราคา ${dorm.price_per_month} บาท/เดือน`);
     }
@@ -289,9 +309,13 @@ export function recommendDorms(
     scoreDorm(dorm, query, reviewsByDorm[dorm.id] || [])
   );
 
-  // Sort by score descending, minimum score threshold
-  return scored
-    .filter((s) => s.score > 0)
+  // Filter: ตัดหอที่เกิน budget ทิ้ง
+  const filtered = scored.filter((s) => {
+    if (s.dorm.__overBudget) return false;
+    return s.score > 0;
+  });
+
+  return filtered
     .sort((a, b) => b.score - a.score)
     .slice(0, limit);
 }
