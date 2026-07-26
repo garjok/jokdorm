@@ -29,6 +29,8 @@ export default function NewDormPage() {
     phone: "",
     facilities: "",
     nearby_places: "",
+    latitude: "",
+    longitude: "",
   });
 
   const [imageFiles, setImageFiles] = useState<File[]>([]);
@@ -126,6 +128,8 @@ export default function NewDormPage() {
       images: [],
       facilities,
       nearby_places,
+      latitude: formData.latitude ? parseFloat(formData.latitude) : null,
+      longitude: formData.longitude ? parseFloat(formData.longitude) : null,
     }).select("id").single();
 
     if (insertError || !dorm) {
@@ -223,6 +227,24 @@ export default function NewDormPage() {
             <div>
               <Label className="text-gray-900 dark:text-white">เบอร์โทร</Label>
               <Input name="phone" value={formData.phone} onChange={handleChange} />
+            </div>
+          </div>
+
+          {/* พิกัดแผนที่ */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label className="text-gray-900 dark:text-white">ละติจูด (Latitude)</Label>
+              <Input name="latitude" type="number" step="any" value={formData.latitude} onChange={handleChange} placeholder="เช่น 19.0283" />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                <a href="https://www.google.com/maps" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                  🔗 เปิด Google Maps
+                </a>
+                 → คลิกขวาที่ตำแหน่ง → Copy พิกัด
+              </p>
+            </div>
+            <div>
+              <Label className="text-gray-900 dark:text-white">ลองจิจูด (Longitude)</Label>
+              <Input name="longitude" type="number" step="any" value={formData.longitude} onChange={handleChange} placeholder="เช่น 100.9123" />
             </div>
           </div>
 
