@@ -18,6 +18,10 @@ export interface Dorm {
   updated_at: string;
   avg_rating?: number;
   review_count?: number;
+  /** ค่าสิ่งอำนวยความสะดวก เช่น wifi, ที่จอดรถ, เครื่องซักผ้า ฯลฯ */
+  facilities?: string[];
+  /** สถานที่ใกล้เคียง เช่น ประตู 1, ตลาด, 7-11 ฯลฯ */
+  nearby_places?: string[];
 }
 
 export interface Review {

@@ -91,6 +91,12 @@ export default function Home() {
             🏠 Dorm Finder
           </Link>
           <div className="flex items-center gap-4">
+            <Link
+              href="/recommend"
+              className="text-sm font-medium text-blue-600 hover:text-blue-800"
+            >
+              🤖 AI แนะนำ
+            </Link>
             {user ? (
               <>
                 <span className="text-sm text-gray-600">{user.email}</span>

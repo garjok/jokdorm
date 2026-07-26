@@ -28,6 +28,8 @@ CREATE TABLE IF NOT EXISTS dorms (
   rooms_available INTEGER NOT NULL DEFAULT 0,
   phone TEXT,
   images TEXT[] DEFAULT '{}',
+  facilities TEXT[] DEFAULT '{}',
+  nearby_places TEXT[] DEFAULT '{}',
   owner_id UUID NOT NULL REFERENCES auth.users(id),
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT now(),
