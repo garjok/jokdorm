@@ -12,6 +12,7 @@ import { ReviewCard } from "@/components/ReviewCard";
 import { ReviewForm } from "@/components/ReviewForm";
 import Link from "next/link";
 import { formatPrice, formatDate } from "@/lib/utils";
+import { DormMap } from "@/components/DormMap";
 
 export default function DormDetailPage() {
   const params = useParams();
@@ -191,6 +192,20 @@ export default function DormDetailPage() {
             </CardHeader>
           </Card>
         </div>
+
+        {/* Map */}
+        {dorm.latitude && dorm.longitude && (
+          <div className="mb-8">
+            <h2 className="text-xl font-bold mb-3">🗺️ แผนที่</h2>
+            <DormMap
+              latitude={dorm.latitude}
+              longitude={dorm.longitude}
+              name={dorm.name}
+              address={dorm.address}
+              height="350px"
+            />
+          </div>
+        )}
 
         {/* Details */}
         <Card className="mb-8">

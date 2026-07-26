@@ -14,6 +14,8 @@ export default function Home() {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("rating_desc");
   const [user, setUser] = useState<any>(null);
+  const [compareSelected, setCompareSelected] = useState<string[]>([]);
+  const [showCompare, setShowCompare] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }: any) => {
@@ -82,6 +84,14 @@ export default function Home() {
     setLoading(false);
   }
 
+  function toggleCompare(id: string) {
+    setCompareSelected((prev) => {
+      if (prev.includes(id)) return prev.filter((s) => s !== id);
+      if (prev.length >= 3) return prev;
+      return [...prev, id];
+    });
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -97,6 +107,21 @@ export default function Home() {
             >
               🤖 AI แนะนำ
             </Link>
+            <Link
+              href="/compare"
+              className="text-sm font-medium text-gray-600 hover:text-gray-900"
+            >
+              ⚖️ เปรียบเทียบ
+            </Link>
+            <button
+              onClick={() => setShowCompare(!showCompare)}
+              className={`text-sm px-2 py-1 rounded ${
+                showCompare ? "bg-blue-100 text-blue-700" : "text-gray-500 hover:text-gray-700"
+              }`}
+              title="เลือกหอเพื่อเปรียบเทียบ"
+            >
+              ☐ {compareSelected.length > 0 && `(${compareSelected.length})`}
+            </button>
             {user ? (
               <>
                 <span className="text-sm text-gray-600">{user.email}</span>
@@ -161,11 +186,45 @@ export default function Home() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {dorms.map((dorm) => (
-              <DormCard key={dorm.id} dorm={dorm} />
+              <DormCard
+                key={dorm.id}
+                dorm={dorm}
+                showCompare={showCompare}
+                isSelected={compareSelected.includes(dorm.id)}
+                onToggleCompare={toggleCompare}
+              />
             ))}
           </div>
         )}
       </main>
+
+      {/* Floating Compare Bar */}
+      {compareSelected.length > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4 z-50">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">⚖️ เลือก {compareSelected.length}/3 หอ</span>
+              <span className="text-xs text-gray-500">
+                {dorms.filter((d) => compareSelected.includes(d.id)).map((d) => d.name).join(", ")}
+              </span>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setCompareSelected([])}
+                className="text-sm text-gray-500 hover:text-gray-700"
+              >
+                ยกเลิก
+              </button>
+              <Link
+                href={`/compare`}
+                className="text-sm bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+              >
+                เปรียบเทียบ
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
